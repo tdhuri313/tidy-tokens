@@ -1,5 +1,8 @@
 <button id="scan">Scan page</button>
+<button id="fixAll" disabled>Fix all (0)</button>
 <p id="status"></p>
+<p id="fixStatus"></p>
+<ul id="failures"></ul>
 <p>Score: <span id="score">-</span></p>
 <p>Issues: <span id="count">-</span></p>
 <ul id="rules"></ul>
@@ -14,6 +17,32 @@
     list.appendChild(li);
   }
 
+  let fixableIds = [];
+
+  function sendFix(issueIds) {
+    $("status").textContent = "Fixing...";
+    parent.postMessage({ pluginMessage: { type: "fix", issueIds } }, "*");
+  }
+
+  function addIssue(issue) {
+    const li = document.createElement("li");
+    li.textContent = `${issue.nodeName}: ${issue.message}`;
+    if (issue.suggestion) {
+      const p = document.createElement("div");
+      p.textContent = "Suggestion: " + issue.suggestion;
+      li.appendChild(p);
+    }
+    if (issue.fix) {
+      const button = document.createElement("button");
+      button.textContent = "Fix";
+      button.onclick = () => sendFix([issue.id]);
+      li.appendChild(button);
+    }
+    $("issues").appendChild(li);
+  }
+
+  $("fixAll").onclick = () => sendFix(fixableIds);
+
   $("scan").onclick = () => {
     $("status").textContent = "Scanning...";
     parent.postMessage({ pluginMessage: { type: "scan", scope: "page" } }, "*");
@@ -24,6 +53,8 @@
     if (!msg) return;
     $("rules").replaceChildren();
     $("issues").replaceChildren();
+    $("failures").replaceChildren();
+    $("fixStatus").textContent = "";
 
     if (msg.type === "error") {
       $("status").textContent = "Error: " + msg.message;
@@ -36,6 +67,15 @@
     $("score").textContent = s.score === null ? "nothing to check" : s.score + "%";
     $("count").textContent = s.issueCount;
     for (const [rule, count] of Object.entries(s.countsByRule)) addItem($("rules"), `${rule}: ${count}`);
-    for (const issue of msg.issues) addItem($("issues"), `${issue.nodeName}: ${issue.message}`);
+    for (const issue of msg.issues) addIssue(issue);
+
+    fixableIds = msg.issues.filter((issue) => issue.fix).map((issue) => issue.id);
+    $("fixAll").textContent = `Fix all (${fixableIds.length})`;
+    $("fixAll").disabled = fixableIds.length === 0;
+
+    if (msg.fixes) {
+      $("fixStatus").textContent = `Fixed ${msg.fixes.succeeded}, failed ${msg.fixes.failures.length}`;
+      for (const reason of msg.fixes.failures) addItem($("failures"), reason);
+    }
   };
 </script>
