@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "types": ["@figma/plugin-typings"]
   },
-  "include": ["code.ts", "src/**/*.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
 }
