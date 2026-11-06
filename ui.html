@@ -1,81 +1,677 @@
-<button id="scan">Scan page</button>
-<button id="fixAll" disabled>Fix all (0)</button>
-<p id="status"></p>
-<p id="fixStatus"></p>
-<ul id="failures"></ul>
-<p>Score: <span id="score">-</span></p>
-<p>Issues: <span id="count">-</span></p>
-<ul id="rules"></ul>
-<ol id="issues"></ol>
+<style>
+  /* Colors and type match the Tab app (../tab/app/globals.css).
+     Text pairs below all pass WCAG AA (4.5:1):
+     navy and ink-muted on white/canvas/lavender-soft, purple on white/lavender-soft,
+     white on purple, danger on danger-soft. */
+  :root {
+    --navy: #101935;
+    --purple: #564787;
+    --purple-hover: #46396f;
+    --lavender: #dbcbd8;
+    --lavender-soft: #f3edf2;
+    --canvas: #f2fdff;
+    --white: #ffffff;
+    --ink-muted: #5a6178;
+    --line: #e7dde6;
+    --line-strong: #9c8ba0;
+    --danger: #b42318;
+    --danger-soft: #fdecea;
+    --radius-card: 10px;
+    --radius-control: 8px;
+    --shadow-card: 0 1px 2px rgb(16 25 53 / 0.04), 0 6px 18px -10px rgb(16 25 53 / 0.14);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    background: var(--canvas);
+    color: var(--navy);
+    font: 13px/1.4 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One visible focus style for everything keyboard-focusable */
+  :focus-visible {
+    outline: 2px solid var(--purple);
+    outline-offset: 2px;
+  }
+
+  button,
+  select,
+  input {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .btn {
+    border-radius: var(--radius-control);
+    padding: 6px 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    border: 1px solid var(--purple);
+    background: var(--purple);
+    color: var(--white);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--purple-hover);
+  }
+
+  .btn-outline {
+    border: 1px solid var(--purple);
+    background: var(--white);
+    color: var(--purple);
+  }
+
+  .btn-outline:hover:not(:disabled) {
+    background: var(--lavender-soft);
+  }
+
+  .btn-small {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+
+  /* ---- Header ---- */
+
+  header {
+    padding: 14px 16px 10px;
+    background: var(--white);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .score {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  .score small {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    letter-spacing: 0;
+  }
+
+  .meta {
+    margin: 2px 0 0;
+    color: var(--ink-muted);
+  }
+
+  /* ---- Controls ---- */
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  .controls select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  select,
+  input[type="number"] {
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-control);
+    background: var(--white);
+  }
+
+  input[aria-invalid="true"] {
+    border-color: var(--danger);
+  }
+
+  .icon-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-control);
+    background: var(--white);
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .icon-btn[aria-expanded="true"] {
+    background: var(--lavender-soft);
+    border-color: var(--purple);
+  }
+
+  .drawer {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background: var(--lavender-soft);
+  }
+
+  .field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .field + .field {
+    margin-top: 8px;
+  }
+
+  .field label {
+    font-weight: 600;
+  }
+
+  .field select,
+  .field input {
+    width: 84px;
+  }
+
+  .hint {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+
+  .hint.invalid {
+    color: var(--danger);
+  }
+
+  /* ---- Status ---- */
+
+  .status {
+    margin: 10px 0 0;
+    min-height: 18px;
+  }
+
+  .status:empty {
+    display: none;
+  }
+
+  .status.error {
+    padding: 6px 8px;
+    border-radius: var(--radius-control);
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .loading::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    border: 2px solid var(--lavender);
+    border-top-color: var(--purple);
+    border-radius: 50%;
+    vertical-align: -1px;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .loading::before {
+      animation: none;
+    }
+  }
+
+  .failures {
+    margin: 6px 0 0;
+    padding: 6px 8px 6px 24px;
+    border-radius: var(--radius-control);
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 12px;
+  }
+
+  .failures:empty {
+    display: none;
+  }
+
+  /* ---- Results ---- */
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px 16px;
+  }
+
+  .results-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .results-top h2 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .empty {
+    margin: 24px 0;
+    text-align: center;
+    color: var(--ink-muted);
+  }
+
+  .section {
+    margin-bottom: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background: var(--white);
+    box-shadow: var(--shadow-card);
+  }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 4px;
+  }
+
+  .toggle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 6px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: none;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .toggle::before {
+    content: "▸";
+    color: var(--ink-muted);
+    transition: transform 120ms;
+  }
+
+  .toggle[aria-expanded="true"]::before {
+    transform: rotate(90deg);
+  }
+
+  .count {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--lavender-soft);
+    color: var(--purple);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .count.zero {
+    color: var(--ink-muted);
+  }
+
+  .issues {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--line);
+  }
+
+  .issue {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 8px 8px 0;
+  }
+
+  .issue + .issue {
+    border-top: 1px solid var(--line);
+  }
+
+  .issue-main {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 4px 2px 12px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: none;
+    text-align: left;
+  }
+
+  .issue-main:hover {
+    background: var(--lavender-soft);
+  }
+
+  .layer {
+    display: block;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tag {
+    margin-left: 4px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .message,
+  .suggestion {
+    display: block;
+    margin-top: 2px;
+  }
+
+  .suggestion {
+    color: var(--ink-muted);
+  }
+
+  .issue .btn {
+    margin-top: 2px;
+  }
+
+  .none {
+    margin: 0;
+    padding: 8px 12px 10px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-muted);
+  }
+</style>
+
+<header>
+  <p class="score" id="score">No scan yet</p>
+  <p class="meta" id="meta">Choose a scope and scan.</p>
+
+  <div class="controls">
+    <select id="scope" aria-label="Scope">
+      <option value="selection">Selection</option>
+      <option value="page" selected>Current page</option>
+      <option value="allPages">All pages</option>
+    </select>
+    <button class="btn btn-primary" id="scan" data-action>Scan</button>
+    <button class="icon-btn" id="settingsToggle" aria-expanded="false" aria-controls="drawer" aria-label="Settings" title="Settings">⚙</button>
+  </div>
+
+  <div class="drawer" id="drawer" hidden>
+    <div class="field">
+      <label for="gridSize">Grid size</label>
+      <select id="gridSize">
+        <option value="4">4px</option>
+        <option value="8" selected>8px</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="deltaE">Color match (Delta E)</label>
+      <input id="deltaE" type="number" min="1" max="20" step="0.5" value="5" aria-describedby="deltaHint" />
+    </div>
+    <p class="hint" id="deltaHint">1 to 20. Lower is stricter. Default 5.</p>
+  </div>
+
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+  <ul class="failures" id="failures" aria-label="Fix failures"></ul>
+</header>
+
+<main id="results">
+  <p class="empty" id="empty">Run a scan to see issues.</p>
+</main>
+
 <script>
   const $ = (id) => document.getElementById(id);
 
-  // textContent (not innerHTML) so layer names can't inject HTML
-  function addItem(list, text) {
-    const li = document.createElement("li");
-    li.textContent = text;
-    list.appendChild(li);
+  // Fixed order and display names for the rule sections
+  const RULES = [
+    { rule: "hardcodedColor", title: "Hardcoded colors" },
+    { rule: "offGridSpacing", title: "Off-grid spacing" },
+    { rule: "lowContrast", title: "Low contrast" },
+    { rule: "textStyle", title: "Text styles" },
+  ];
+
+  const DEFAULT_DELTA_E = 5;
+  const UNDO_KEY = /Mac/.test(navigator.platform) ? "Cmd+Z" : "Ctrl+Z";
+
+  let busy = false;
+  const expanded = {}; // rule -> true/false, remembered across rescans
+
+  function send(message) {
+    parent.postMessage({ pluginMessage: message }, "*");
   }
 
-  let fixableIds = [];
-
-  function sendFix(issueIds) {
-    $("status").textContent = "Fixing...";
-    parent.postMessage({ pluginMessage: { type: "fix", issueIds } }, "*");
+  // Builds an element. Text always goes through textContent, so layer names can't inject HTML.
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
   }
 
-  function addIssue(issue) {
-    const li = document.createElement("li");
-    li.textContent = `${issue.nodeName}: ${issue.message}`;
-    if (issue.suggestion) {
-      const p = document.createElement("div");
-      p.textContent = "Suggestion: " + issue.suggestion;
-      li.appendChild(p);
+  function setStatus(text, kind) {
+    const status = $("status");
+    status.textContent = text;
+    status.className = "status" + (kind ? " " + kind : "");
+  }
+
+  function setBusy(value, label) {
+    busy = value;
+    for (const button of document.querySelectorAll("[data-action]")) button.disabled = value || button.dataset.empty === "true";
+    if (value) {
+      setStatus(label, "loading");
+      $("failures").replaceChildren();
     }
-    if (issue.fix) {
-      const button = document.createElement("button");
-      button.textContent = "Fix";
-      button.onclick = () => sendFix([issue.id]);
-      li.appendChild(button);
-    }
-    $("issues").appendChild(li);
   }
 
-  $("fixAll").onclick = () => sendFix(fixableIds);
+  // ---- Settings ----
 
-  $("scan").onclick = () => {
-    $("status").textContent = "Scanning...";
-    parent.postMessage({ pluginMessage: { type: "scan", scope: "page" } }, "*");
+  function readDeltaE() {
+    const value = Number($("deltaE").value);
+    const valid = $("deltaE").value !== "" && Number.isFinite(value) && value >= 1 && value <= 20;
+    $("deltaE").setAttribute("aria-invalid", String(!valid));
+    $("deltaHint").classList.toggle("invalid", !valid);
+    $("deltaHint").textContent = valid
+      ? "1 to 20. Lower is stricter. Default 5."
+      : `Enter a number from 1 to 20. Using ${DEFAULT_DELTA_E} until then.`;
+    return valid ? value : DEFAULT_DELTA_E;
+  }
+
+  function currentPrefs() {
+    return {
+      scope: $("scope").value,
+      settings: { gridSize: Number($("gridSize").value), deltaEThreshold: readDeltaE() },
+    };
+  }
+
+  function savePrefs() {
+    send({ type: "savePrefs", ...currentPrefs() });
+  }
+
+  $("scope").onchange = savePrefs;
+  $("gridSize").onchange = savePrefs;
+  $("deltaE").oninput = readDeltaE;
+  $("deltaE").onchange = savePrefs;
+
+  $("settingsToggle").onclick = () => {
+    const open = $("drawer").hidden;
+    $("drawer").hidden = !open;
+    $("settingsToggle").setAttribute("aria-expanded", String(open));
   };
+
+  // ---- Actions ----
+
+  function scan() {
+    setBusy(true, "Scanning…");
+    send({ type: "scan", ...currentPrefs() });
+  }
+
+  function fix(issueIds) {
+    if (issueIds.length === 0) return;
+    setBusy(true, issueIds.length === 1 ? "Fixing 1 issue…" : `Fixing ${issueIds.length} issues…`);
+    send({ type: "fix", issueIds });
+  }
+
+  $("scan").onclick = scan;
+
+  function fixableIds(issues) {
+    return issues.filter((issue) => issue.fix).map((issue) => issue.id);
+  }
+
+  function actionButton(label, className, ids) {
+    const button = el("button", className, label);
+    button.dataset.action = "";
+    button.dataset.empty = String(ids.length === 0);
+    button.disabled = busy || ids.length === 0;
+    button.onclick = (event) => {
+      event.stopPropagation(); // a Fix click must never also select the layer
+      fix(ids);
+    };
+    return button;
+  }
+
+  // ---- Rendering ----
+
+  function renderHeader(msg) {
+    const s = msg.summary;
+    const score = $("score");
+    score.replaceChildren();
+    if (s.score === null) {
+      score.textContent = "Nothing to check";
+    } else {
+      score.append(String(s.score) + "% ", el("small", "", "on-system"));
+    }
+    const layers = s.checkedLayers === 1 ? "1 layer" : `${s.checkedLayers} layers`;
+    $("meta").textContent = `Checked ${layers} in ${msg.ms}ms`;
+  }
+
+  function renderFixStatus(fixes) {
+    if (!fixes) {
+      setStatus("");
+      return;
+    }
+    const parts = [];
+    if (fixes.succeeded > 0) parts.push(`Fixed ${fixes.succeeded}. Press ${UNDO_KEY} in Figma to undo.`);
+    else parts.push("Nothing was fixed.");
+    if (fixes.failures.length > 0) parts.push(`${fixes.failures.length} could not be fixed:`);
+    setStatus(parts.join(" "));
+    for (const reason of fixes.failures) $("failures").appendChild(el("li", "", reason));
+  }
+
+  function renderIssue(issue) {
+    const li = el("li", "issue");
+
+    const main = el("button", "issue-main");
+    main.title = "Select and zoom to this layer";
+    const layer = el("span", "layer", issue.nodeName);
+    if (issue.severity === "error") layer.appendChild(el("span", "tag", "Error"));
+    main.append(layer, el("span", "message", issue.message));
+    if (issue.suggestion) main.appendChild(el("span", "suggestion", issue.suggestion));
+    main.onclick = () => send({ type: "select", nodeId: issue.nodeId });
+    li.appendChild(main);
+
+    if (issue.fix) li.appendChild(actionButton("Fix", "btn btn-outline btn-small", [issue.id]));
+    return li;
+  }
+
+  function renderSection({ rule, title }, issues) {
+    const section = el("section", "section");
+    const count = issues.length;
+    // Empty sections are always collapsed. Otherwise keep what the user chose, defaulting to open.
+    const open = count > 0 && expanded[rule] !== false;
+
+    const head = el("div", "section-head");
+    const toggle = el("button", "toggle");
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.append(el("span", "", title), el("span", count === 0 ? "count zero" : "count", String(count)));
+    head.appendChild(toggle);
+
+    const ids = fixableIds(issues);
+    if (ids.length > 0) head.appendChild(actionButton(`Fix all (${ids.length})`, "btn btn-outline btn-small", ids));
+    section.appendChild(head);
+
+    const body = count > 0 ? el("ul", "issues") : el("p", "none", "No issues.");
+    if (count > 0) for (const issue of issues) body.appendChild(renderIssue(issue));
+    body.hidden = !open;
+    section.appendChild(body);
+
+    toggle.onclick = () => {
+      const next = body.hidden;
+      body.hidden = !next;
+      toggle.setAttribute("aria-expanded", String(next));
+      if (count > 0) expanded[rule] = next;
+    };
+    return section;
+  }
+
+  function renderResults(msg) {
+    const results = $("results");
+    results.replaceChildren();
+
+    const top = el("div", "results-top");
+    top.appendChild(el("h2", "", msg.issues.length === 1 ? "1 issue" : `${msg.issues.length} issues`));
+    const allIds = fixableIds(msg.issues);
+    top.appendChild(actionButton(`Fix all (${allIds.length})`, "btn btn-primary btn-small", allIds));
+    results.appendChild(top);
+
+    for (const info of RULES) {
+      results.appendChild(renderSection(info, msg.issues.filter((issue) => issue.rule === info.rule)));
+    }
+  }
+
+  // ---- Messages from the plugin ----
 
   window.onmessage = (event) => {
     const msg = event.data.pluginMessage;
     if (!msg) return;
-    $("rules").replaceChildren();
-    $("issues").replaceChildren();
-    $("failures").replaceChildren();
-    $("fixStatus").textContent = "";
 
-    if (msg.type === "error") {
-      $("status").textContent = "Error: " + msg.message;
-      return;
-    }
-    if (msg.type !== "results") return;
-
-    const s = msg.summary;
-    $("status").textContent = `Checked ${s.checkedLayers} layers in ${msg.ms}ms`;
-    $("score").textContent = s.score === null ? "nothing to check" : s.score + "%";
-    $("count").textContent = s.issueCount;
-    for (const [rule, count] of Object.entries(s.countsByRule)) addItem($("rules"), `${rule}: ${count}`);
-    for (const issue of msg.issues) addIssue(issue);
-
-    fixableIds = msg.issues.filter((issue) => issue.fix).map((issue) => issue.id);
-    $("fixAll").textContent = `Fix all (${fixableIds.length})`;
-    $("fixAll").disabled = fixableIds.length === 0;
-
-    if (msg.fixes) {
-      $("fixStatus").textContent = `Fixed ${msg.fixes.succeeded}, failed ${msg.fixes.failures.length}`;
-      for (const reason of msg.fixes.failures) addItem($("failures"), reason);
+    if (msg.type === "prefs") {
+      $("scope").value = msg.scope;
+      $("gridSize").value = String(msg.settings.gridSize);
+      $("deltaE").value = String(msg.settings.deltaEThreshold);
+      readDeltaE();
+    } else if (msg.type === "results") {
+      setBusy(false);
+      renderHeader(msg);
+      renderResults(msg);
+      renderFixStatus(msg.fixes);
+    } else if (msg.type === "selectError") {
+      setStatus(msg.message, "error");
+    } else if (msg.type === "error") {
+      setBusy(false);
+      setStatus("Error: " + msg.message, "error");
     }
   };
+
+  send({ type: "ready" });
 </script>
