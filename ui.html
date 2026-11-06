@@ -1,17 +1,41 @@
-<h2>Rectangle Creator</h2>
-<p>Count: <input id="count" type="number" value="5"></p>
-<button id="create">Create</button>
-<button id="cancel">Cancel</button>
+<button id="scan">Scan page</button>
+<p id="status"></p>
+<p>Score: <span id="score">-</span></p>
+<p>Issues: <span id="count">-</span></p>
+<ul id="rules"></ul>
+<ol id="issues"></ol>
 <script>
+  const $ = (id) => document.getElementById(id);
 
-document.getElementById('create').onclick = () => {
-  const textbox = document.getElementById('count');
-  const count = parseInt(textbox.value, 10);
-  parent.postMessage({ pluginMessage: { type: 'create-shapes', count } }, '*')
-}
+  // textContent (not innerHTML) so layer names can't inject HTML
+  function addItem(list, text) {
+    const li = document.createElement("li");
+    li.textContent = text;
+    list.appendChild(li);
+  }
 
-document.getElementById('cancel').onclick = () => {
-  parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*')
-}
+  $("scan").onclick = () => {
+    $("status").textContent = "Scanning...";
+    parent.postMessage({ pluginMessage: { type: "scan", scope: "page" } }, "*");
+  };
 
+  window.onmessage = (event) => {
+    const msg = event.data.pluginMessage;
+    if (!msg) return;
+    $("rules").replaceChildren();
+    $("issues").replaceChildren();
+
+    if (msg.type === "error") {
+      $("status").textContent = "Error: " + msg.message;
+      return;
+    }
+    if (msg.type !== "results") return;
+
+    const s = msg.summary;
+    $("status").textContent = `Checked ${s.checkedLayers} layers in ${msg.ms}ms`;
+    $("score").textContent = s.score === null ? "nothing to check" : s.score + "%";
+    $("count").textContent = s.issueCount;
+    for (const [rule, count] of Object.entries(s.countsByRule)) addItem($("rules"), `${rule}: ${count}`);
+    for (const issue of msg.issues) addItem($("issues"), `${issue.nodeName}: ${issue.message}`);
+  };
 </script>

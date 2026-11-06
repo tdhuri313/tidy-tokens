@@ -4,10 +4,10 @@
   "description": "Your Figma Plugin",
   "main": "code.js",
   "scripts": {
-    "build": "esbuild code.ts --bundle --target=es2017 --outfile=code.js",
+    "build": "esbuild src/main/code.ts --bundle --target=es2017 --outfile=code.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "watch": "esbuild code.ts --bundle --target=es2017 --outfile=code.js --watch",
+    "watch": "esbuild src/main/code.ts --bundle --target=es2017 --outfile=code.js --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
