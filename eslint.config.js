@@ -10,6 +10,13 @@ module.exports = tseslint.config(
   // tseslint.configs.recommended instead.
   tseslint.configs.recommended,
   {
+    // The Figma plugin rules read TypeScript types, so the parser needs the tsconfig
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: __dirname,
+      },
+    },
     plugins: {
       '@figma/figma-plugins': figmaPlugin,
     },
@@ -27,6 +34,6 @@ module.exports = tseslint.config(
     },
   },
   {
-    ignores: ['code.js', 'dist', 'eslint.config.js'],
+    ignores: ['code.js', 'node_modules/**', 'dev/**', 'dist', 'eslint.config.js', 'coverage/**'],
   },
 )
