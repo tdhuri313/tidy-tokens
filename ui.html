@@ -221,28 +221,35 @@
     color: var(--danger);
   }
 
-  .loading::before {
-    content: "";
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    margin-right: 6px;
-    border: 2px solid var(--lavender);
-    border-top-color: var(--purple);
-    border-radius: 50%;
-    vertical-align: -1px;
-    animation: spin 0.8s linear infinite;
+  .progress {
+    margin-top: 10px;
   }
 
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+  .progress-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .progress-track {
+    height: 6px;
+    margin-top: 6px;
+    border-radius: 999px;
+    background: var(--lavender-soft);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    width: 0;
+    height: 100%;
+    background: var(--purple);
+    transition: width 120ms;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .loading::before {
-      animation: none;
+    .progress-fill {
+      transition: none;
     }
   }
 
@@ -286,6 +293,41 @@
     margin: 24px 0;
     text-align: center;
     color: var(--ink-muted);
+  }
+
+  .notice {
+    margin: 0 0 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background: var(--lavender-soft);
+  }
+
+  .notice strong {
+    display: block;
+  }
+
+  .all-clear {
+    margin: 24px 0;
+    text-align: center;
+  }
+
+  .all-clear strong {
+    display: block;
+    font-size: 18px;
+  }
+
+  .all-clear span {
+    color: var(--ink-muted);
+  }
+
+  .more {
+    display: block;
+    margin: 0 auto 8px;
+  }
+
+  .more[hidden] {
+    display: none;
   }
 
   .section {
@@ -442,6 +484,16 @@
     <p class="hint" id="deltaHint">1 to 20. Lower is stricter. Default 5.</p>
   </div>
 
+  <div class="progress" id="progress" hidden>
+    <div class="progress-row">
+      <span id="progressLabel">Starting…</span>
+      <button class="btn btn-outline btn-small" id="cancel" hidden>Cancel</button>
+    </div>
+    <div class="progress-track" id="progressBar" role="progressbar" aria-labelledby="progressLabel" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
   <p class="status" id="status" role="status" aria-live="polite"></p>
   <ul class="failures" id="failures" aria-label="Fix failures"></ul>
 </header>
@@ -463,8 +515,11 @@
 
   const DEFAULT_DELTA_E = 5;
   const UNDO_KEY = /Mac/.test(navigator.platform) ? "Cmd+Z" : "Ctrl+Z";
+  const PAGE_SIZE = 50; // issues rendered per section at a time, so thousands of issues don't freeze the panel
+  const PHASE_LABELS = { collect: "Reading layers", rules: "Checking rules", fix: "Applying fixes" };
 
   let busy = false;
+  let hasResults = false; // whether the results area shows a finished scan
   const expanded = {}; // rule -> true/false, remembered across rescans
 
   function send(message) {
@@ -485,12 +540,30 @@
     status.className = "status" + (kind ? " " + kind : "");
   }
 
+  function setProgress(label, percent) {
+    $("progressLabel").textContent = label;
+    $("progressFill").style.width = percent + "%";
+    $("progressBar").setAttribute("aria-valuenow", String(percent));
+  }
+
+  function setCancelable(value) {
+    const cancel = $("cancel");
+    cancel.hidden = !value;
+    cancel.disabled = false;
+    cancel.textContent = "Cancel";
+  }
+
   function setBusy(value, label) {
     busy = value;
     for (const button of document.querySelectorAll("[data-action]")) button.disabled = value || button.dataset.empty === "true";
+    $("progress").hidden = !value;
     if (value) {
-      setStatus(label, "loading");
+      // Starting something new clears the last fix status and error
+      setStatus("");
       $("failures").replaceChildren();
+      setProgress(label, 0);
+    } else {
+      setCancelable(false);
     }
   }
 
@@ -532,17 +605,26 @@
   // ---- Actions ----
 
   function scan() {
-    setBusy(true, "Scanning…");
+    setBusy(true, "Starting scan…");
+    setCancelable(true);
     send({ type: "scan", ...currentPrefs() });
   }
 
   function fix(issueIds) {
     if (issueIds.length === 0) return;
     setBusy(true, issueIds.length === 1 ? "Fixing 1 issue…" : `Fixing ${issueIds.length} issues…`);
+    // Fixes can't be cancelled partway, only the rescan that follows them
+    setCancelable(false);
     send({ type: "fix", issueIds });
   }
 
   $("scan").onclick = scan;
+
+  $("cancel").onclick = () => {
+    $("cancel").disabled = true;
+    $("cancel").textContent = "Cancelling…";
+    send({ type: "cancel" });
+  };
 
   function fixableIds(issues) {
     return issues.filter((issue) => issue.fix).map((issue) => issue.id);
@@ -575,17 +657,18 @@
     $("meta").textContent = `Checked ${layers} in ${msg.ms}ms`;
   }
 
-  function renderFixStatus(fixes) {
-    if (!fixes) {
-      setStatus("");
-      return;
-    }
+  // fixes is null unless this message follows a fix. note is any extra sentence to show with it.
+  function renderFixStatus(fixes, note) {
     const parts = [];
-    if (fixes.succeeded > 0) parts.push(`Fixed ${fixes.succeeded}. Press ${UNDO_KEY} in Figma to undo.`);
-    else parts.push("Nothing was fixed.");
-    if (fixes.failures.length > 0) parts.push(`${fixes.failures.length} could not be fixed:`);
+    if (fixes) {
+      if (fixes.succeeded > 0) parts.push(`Fixed ${fixes.succeeded}. Press ${UNDO_KEY} in Figma to undo.`);
+      else parts.push("Nothing was fixed.");
+    }
+    if (note) parts.push(note);
+    if (fixes && fixes.failures.length > 0) parts.push(`${fixes.failures.length} could not be fixed:`);
     setStatus(parts.join(" "));
-    for (const reason of fixes.failures) $("failures").appendChild(el("li", "", reason));
+    $("failures").replaceChildren();
+    if (fixes) for (const reason of fixes.failures) $("failures").appendChild(el("li", "", reason));
   }
 
   function renderIssue(issue) {
@@ -604,6 +687,28 @@
     return li;
   }
 
+  // Renders the first PAGE_SIZE issues, with a button that adds the next PAGE_SIZE each click
+  function renderIssueList(issues) {
+    const wrap = el("div");
+    const list = el("ul", "issues");
+    const more = el("button", "btn btn-outline btn-small more");
+    let shown = 0;
+
+    function showMore() {
+      const end = Math.min(shown + PAGE_SIZE, issues.length);
+      for (let i = shown; i < end; i++) list.appendChild(renderIssue(issues[i]));
+      shown = end;
+      const left = issues.length - shown;
+      more.hidden = left === 0;
+      more.textContent = `Show ${Math.min(PAGE_SIZE, left)} more`;
+    }
+
+    more.onclick = showMore;
+    showMore();
+    wrap.append(list, more);
+    return wrap;
+  }
+
   function renderSection({ rule, title }, issues) {
     const section = el("section", "section");
     const count = issues.length;
@@ -620,8 +725,7 @@
     if (ids.length > 0) head.appendChild(actionButton(`Fix all (${ids.length})`, "btn btn-outline btn-small", ids));
     section.appendChild(head);
 
-    const body = count > 0 ? el("ul", "issues") : el("p", "none", "No issues.");
-    if (count > 0) for (const issue of issues) body.appendChild(renderIssue(issue));
+    const body = count > 0 ? renderIssueList(issues) : el("p", "none", "No issues.");
     body.hidden = !open;
     section.appendChild(body);
 
@@ -634,9 +738,37 @@
     return section;
   }
 
+  function renderNoTokensNotice() {
+    const notice = el("div", "notice");
+    notice.append(
+      el("strong", "", "No color tokens found in this file"),
+      el("span", "", "Hardcoded colors can't be matched to a token until the file has color variables or styles."),
+    );
+    return notice;
+  }
+
+  function renderAllClear(summary) {
+    if (summary.score === null) {
+      return el("p", "empty", "Nothing in this scope has colors, spacing, or text to check.");
+    }
+    const box = el("div", "all-clear");
+    const layers = summary.checkedLayers === 1 ? "1 layer" : `${summary.checkedLayers} layers`;
+    box.append(el("strong", "", "All clear"), el("span", "", `${summary.score}% on-system across ${layers}.`));
+    return box;
+  }
+
   function renderResults(msg) {
     const results = $("results");
     results.replaceChildren();
+    hasResults = true;
+
+    // The other rules still work without color tokens, so the results are shown below this
+    if (msg.colorTokenCount === 0) results.appendChild(renderNoTokensNotice());
+
+    if (msg.issues.length === 0) {
+      results.appendChild(renderAllClear(msg.summary));
+      return;
+    }
 
     const top = el("div", "results-top");
     top.appendChild(el("h2", "", msg.issues.length === 1 ? "1 issue" : `${msg.issues.length} issues`));
@@ -644,9 +776,24 @@
     top.appendChild(actionButton(`Fix all (${allIds.length})`, "btn btn-primary btn-small", allIds));
     results.appendChild(top);
 
-    for (const info of RULES) {
-      results.appendChild(renderSection(info, msg.issues.filter((issue) => issue.rule === info.rule)));
-    }
+    // Group in one pass instead of filtering the full list once per rule
+    const byRule = {};
+    for (const info of RULES) byRule[info.rule] = [];
+    for (const issue of msg.issues) if (byRule[issue.rule]) byRule[issue.rule].push(issue);
+    for (const info of RULES) results.appendChild(renderSection(info, byRule[info.rule]));
+  }
+
+  function renderEmptySelection() {
+    $("score").textContent = "Nothing selected";
+    $("meta").textContent = "";
+    $("results").replaceChildren(el("p", "empty", "Select at least one layer, or switch scope."));
+    hasResults = false;
+  }
+
+  function readableError(message) {
+    const text = String(message || "Unknown error").trim();
+    const sentence = /[.!?]$/.test(text) ? text : text + ".";
+    return `Something went wrong: ${sentence} Try scanning again.`;
   }
 
   // ---- Messages from the plugin ----
@@ -660,16 +807,32 @@
       $("gridSize").value = String(msg.settings.gridSize);
       $("deltaE").value = String(msg.settings.deltaEThreshold);
       readDeltaE();
+    } else if (msg.type === "progress") {
+      if (!busy) return; // a late message after the scan already finished
+      const percent = msg.total === 0 ? 100 : Math.floor((msg.done * 100) / msg.total);
+      setProgress(`${PHASE_LABELS[msg.phase] || "Working"}… ${percent}%`, percent);
+      // The rescan after a fix can be cancelled, so show the button once it starts
+      if (msg.phase !== "fix" && $("cancel").hidden) setCancelable(true);
     } else if (msg.type === "results") {
       setBusy(false);
       renderHeader(msg);
       renderResults(msg);
       renderFixStatus(msg.fixes);
+    } else if (msg.type === "emptySelection") {
+      setBusy(false);
+      renderEmptySelection();
+      renderFixStatus(msg.fixes);
+    } else if (msg.type === "cancelled") {
+      setBusy(false);
+      let note = "Scan cancelled.";
+      if (msg.fixes) note = "The rescan was cancelled, so the list below is out of date. Scan again to refresh.";
+      else if (hasResults) note = "Scan cancelled. The results below are from the previous scan.";
+      renderFixStatus(msg.fixes, note);
     } else if (msg.type === "selectError") {
       setStatus(msg.message, "error");
     } else if (msg.type === "error") {
       setBusy(false);
-      setStatus("Error: " + msg.message, "error");
+      setStatus(readableError(msg.message), "error");
     }
   };
 

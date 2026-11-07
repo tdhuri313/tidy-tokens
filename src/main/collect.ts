@@ -41,7 +41,8 @@ function nodesInSelection(): SceneNode[] {
   return [...found.values()];
 }
 
-async function findNodes(scope: Scope): Promise<SceneNode[]> {
+export async function findNodes(scope: Scope): Promise<SceneNode[]> {
+  figma.skipInvisibleInstanceChildren = true;
   if (scope === "selection") return nodesInSelection();
   if (scope === "page") return figma.currentPage.findAllWithCriteria({ types: NODE_TYPES });
   await figma.loadAllPagesAsync();
@@ -172,8 +173,22 @@ function toSnapshot(node: SceneNode): Snapshot {
   };
 }
 
-export async function collectSnapshots(scope: Scope): Promise<Snapshot[]> {
-  figma.skipInvisibleInstanceChildren = true;
-  const nodes = await findNodes(scope);
-  return nodes.filter(isVisible).map(toSnapshot);
+// Runs after each batch with how many nodes are done. It can throw to stop the scan.
+export type AfterBatch = (done: number, total: number) => Promise<void>;
+
+const SNAPSHOT_BATCH_SIZE = 500;
+
+// Converts nodes in batches so the caller can yield to Figma and report progress between them
+export async function buildSnapshots(nodes: SceneNode[], afterBatch: AfterBatch): Promise<Snapshot[]> {
+  const snapshots: Snapshot[] = [];
+  for (let start = 0; start < nodes.length; start += SNAPSHOT_BATCH_SIZE) {
+    const end = Math.min(start + SNAPSHOT_BATCH_SIZE, nodes.length);
+    for (let i = start; i < end; i++) {
+      const node = nodes[i];
+      // The file can change while the scan yields, and reading a deleted node throws
+      if (!node.removed && isVisible(node)) snapshots.push(toSnapshot(node));
+    }
+    await afterBatch(end, nodes.length);
+  }
+  return snapshots;
 }
