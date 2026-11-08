@@ -43,11 +43,9 @@ Every issue is listed by rule. Click one to select and zoom to the layer, click 
 
 | Layers | Before batching | After batching |
 |---|---|---|
-| 468 | 271ms (froze UI) | — |
-| 4,654 | 2,852ms (froze UI) | — |
-| ~20,000 | not measured | [MY 20K TIME]ms, responsive |
+| ~4,660 | 2,852ms (froze UI) | 6,017ms, UI stays responsive and the scan can be cancelled |
 
-The "after" numbers for the smaller files will be added later.
+Batching trades total scan time for responsiveness; reducing per-batch overhead is on the roadmap.
 
 ## Tests and CI
 
@@ -79,6 +77,7 @@ There are two plugins in `dev/` for testing:
 - Flag detached components
 - Team config files for grid size, thresholds, and which rules to run
 - Lint exported design tokens in CI, outside Figma
+- Reduce batching overhead on large files
 
 ## License
 
