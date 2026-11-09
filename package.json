@@ -4,6 +4,7 @@
   "description": "Your Figma Plugin",
   "main": "code.js",
   "scripts": {
+    "coverage": "vitest run --coverage --coverage.include=\"src/core/**\"",
     "build": "esbuild src/main/code.ts --bundle --target=es2017 --outfile=code.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -12,11 +13,12 @@
     "typecheck": "tsc --noEmit"
   },
   "author": "",
-  "license": "",
+  "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@figma/eslint-plugin-figma-plugins": "*",
     "@figma/plugin-typings": "*",
+    "@vitest/coverage-v8": "^5.1.0",
     "esbuild": "^0.28.2",
     "eslint": "^9.39.4",
     "typescript": "^5.9.3",
