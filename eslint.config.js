@@ -34,6 +34,6 @@ module.exports = tseslint.config(
     },
   },
   {
-    ignores: ['code.js', 'node_modules/**', 'dev/**', 'dist', 'eslint.config.js', 'coverage/**'],
+    ignores: ['code.js', 'node_modules/**', 'dev/**', 'scripts/**', 'dist', 'eslint.config.js', 'coverage/**'],
   },
 )

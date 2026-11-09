@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Purple rounded square -->
+  <rect width="512" height="512" rx="112" fill="#635BFF"/>
+
+  <!-- A 4 x 4 grid of token dots behind the check -->
+  <g fill="#E6E3FF" fill-opacity="0.45">
+    <circle cx="124" cy="124" r="16"/>
+    <circle cx="212" cy="124" r="16"/>
+    <circle cx="300" cy="124" r="16"/>
+    <circle cx="388" cy="124" r="16"/>
+    <circle cx="124" cy="212" r="16"/>
+    <circle cx="212" cy="212" r="16"/>
+    <circle cx="300" cy="212" r="16"/>
+    <circle cx="388" cy="212" r="16"/>
+    <circle cx="124" cy="300" r="16"/>
+    <circle cx="212" cy="300" r="16"/>
+    <circle cx="300" cy="300" r="16"/>
+    <circle cx="388" cy="300" r="16"/>
+    <circle cx="124" cy="388" r="16"/>
+    <circle cx="212" cy="388" r="16"/>
+    <circle cx="300" cy="388" r="16"/>
+    <circle cx="388" cy="388" r="16"/>
+  </g>
+
+  <!-- White checkmark on top -->
+  <polyline points="142,268 222,348 374,180" fill="none" stroke="#FFFFFF" stroke-width="60" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

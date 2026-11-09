@@ -5,6 +5,7 @@
   "main": "code.js",
   "scripts": {
     "coverage": "vitest run --coverage --coverage.include=\"src/core/**\"",
+    "assets": "node scripts/make-assets.mjs",
     "build": "esbuild src/main/code.ts --bundle --target=es2017 --outfile=code.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -21,6 +22,7 @@
     "@vitest/coverage-v8": "^5.1.0",
     "esbuild": "^0.28.2",
     "eslint": "^9.39.4",
+    "sharp": "^0.34.5",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.1",
     "vitest": "^5.1.0"
