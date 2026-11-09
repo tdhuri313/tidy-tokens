@@ -29,7 +29,7 @@ Color bound, Spacing good, and Text clean should not be flagged.
 
 ### Stress test plugin
 
-Run the seed plugin first, then stay on that page and choose **Plugins → Development → Tidy Tokens Stress Test → 500 / 5,000 / 20,000 layers**. It fills a page called "Stress <size>" with copies of the seed frame and switches to it. Running it again clears and refills that page.
+Run the seed plugin first, then stay on that page and choose **Plugins → Development → Tidy Tokens Stress Test → 500 / 5,000 / 20,000 layers**. It fills a page called "Stress <size>" with copies of the seed frame and switches to it. Running it again clears and refills that page. Each size makes its own page, and Figma's free plan limits files to 3 pages, so use the 5,000-layer size for the checklist.
 
 ## Checklist
 
@@ -41,5 +41,5 @@ Run the seed plugin first, then stay on that page and choose **Plugins → Devel
 - [ ] **Current page scope works.** Only layers on the current page are listed.
 - [ ] **All pages scope works.** Issues from the seed page and any stress pages are all listed.
 - [ ] **A file with no tokens shows the empty state.** In a new file with no color variables or styles, draw a rectangle with a solid fill and scan. The panel should show "No color tokens found in this file", and the hardcoded color issue should still be listed (without a Fix button).
-- [ ] **A 20,000-layer page scans without freezing.** Make the 20,000-layer stress page and scan it. The progress bar should move through "Reading layers" and "Checking rules", and Figma should stay responsive (the canvas can still pan) during the scan. Note the total time from the console line that starts with "Tidy Tokens scan:".
-- [ ] **A scan can be cancelled.** Start the 20,000-layer scan again and click Cancel. The panel should say the scan was cancelled, and the Scan button should work again.
+- [ ] **A 5,000-layer page scans without freezing.** Make the 5,000-layer stress page and scan it. The progress bar should move through "Reading layers" and "Checking rules", and Figma should stay responsive (the canvas can still pan) during the scan. Note the total time from the console line that starts with "Tidy Tokens scan:".
+- [ ] **A scan can be cancelled.** Start the 5,000-layer scan again and click Cancel. The panel should say the scan was cancelled, and the Scan button should work again.
