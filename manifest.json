@@ -13,6 +13,7 @@
   "networkAccess": {
     "allowedDomains": [
       "none"
-    ]
+    ],
+    "reasoning": "Tidy Tokens makes no network requests. It only reads and edits the open Figma file."
   }
 }
